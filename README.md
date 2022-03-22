@@ -1,2 +1,0 @@
-# Estudio-Exploratorio-Mosconi-Florencia-RStudio
-Estudio exploratorio de dos de los métodos multivariantes más utilizados para la interpretación de información, análisis de componentes principales y de cluster, en R. Partiendo de la agrupación de los países analizados en el Programa de las Naciones Unidas para el Desarrollo (PNUD) según sus semejanzas correspondientes a las siguientes dimensiones, educación, economía, salud, ambiente, desigualdad y sociedad.
