@@ -1,0 +1,185 @@
+---
+title: "Matriz de Correlación y Análisis de Componentes Principales"
+author: "Florencia Mosconi"
+date: "16/11/2021"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+editor_options:
+  markdown:
+    wrap: sentence
+---
+```{r set-options, echo=FALSE, cache=FALSE}
+options(width = 110)
+```
+```{r include=FALSE}
+library("lattice")
+library("Hmisc")
+library("printr")
+library("psych")
+library("corrplot")
+```
+# Tabla de Datos
+<p>Los datos presentado a continuación fueron extraídos del informe 'Índice de Desarollo Humano 2020', realizado por el Programa de las Naciones Unidas para el Desarrollo (PNDU).</p>
+```{r}
+datos=read.csv("../TP final/Trabajo R.csv",header=TRUE,sep=";",dec=",")
+rownames(datos)<-datos$OBS.VAR
+datos$OBS.VAR<-NULL
+```
+<p>Nuestra tabla de datos está compuesta por 15 variables cuantitativas y 117 unidades de observación, las cuales cooresponden a aquellos países que cuentan con información para todas las variables seleccionadas.</p>
+```{r}
+dim(datos)
+```
+```{r}
+head(datos, 117)
+```
+<p>Comenzaremos analizando la matriz de correlación y realizando el test KMO <em>(Kaiser, Meyer y Olkin)</em>, para luego realizar el Análisis de Componenetes Principales (ACP) y de Cluster.</p>
+# Matriz de Correlación
+<p>La matriz de correlación nos permitirá evaluar la fuerza y dirección de la relación entre las variables tipificadas seleccionadas.
+Un valor de correlación elevado y positivo nos indica que los elementos miden la misma característica, caso contratio si los elementos no están altamente correlacionados, donde nuestras variables pudieran medir diferentes atributos o no estar claramente definidos.</p>
+<p>La matriz será de doble entrada, y mostrará una lista multivariable horizontalmente y la misma lista verticalmente, en su intersección encontramos los coeficiente de correlación, "r".
+Éstos pueden tomar un valor entre -1 y 1, donde valores cercanos a cero muestran que no existe relación lineal, cercanos a 1 que las dos variables están asociadas en sentido directo (elevada asociación positiva) y cercanos a -1 en sentido inverso (elevada asociación negativa).</p>
+<p>En la diagonal encontramos valores iguales a 1, ya que representan la relación entre una variable y si misma.</p>
+### Coeficiente de Correlación de Pearson
+<p>Calcularemos la matriz de correlacion mediante el método de Pearson, cuyos coeficientes de correlación se definen como la covarianza existente entre dos variables tipificadas y se obtienen sumando los productos de cada pareja de datos y dividiendo el resultado por el producto del número de datos por la desviación estándar de cada variable.</p>
+```{r}
+matriz<-rcorr(as.matrix(datos))
+matrizr<-round(matriz$r,2)
+matrizr
+```
+### Contraste Hipótesis Nula de Aleatoriedad
+<p>Los p-valores muestran la significancia de los niveles de correlaciones, y nos permiten analizar la aleatoriedad de la correlación.
+Considerando un intervalo de confianza del 95% realizamos un contraste normal de la siguiente hipótesis nula, <em>'Las correlaciones son aleatorias'</em>.
+Los p-valores en su mayoría muestran acepatación de la hipótesis nula, como podemos ver en la intersección de las variables EVN (Esperanza de Vida al Nacer" y CDH ("Coeficiente de Desigualdad Humana") tienen correlación de -0,85,y su valor test es de 0,00.
+Todos aquellos p-valores menores a 0,05 son variables que están correlacionadas aleatoriamente.</p>
+```{r}
+matrizp<-round(matriz$P,2)
+matrizp
+```
+### Correlograma
+<p>A continuación podemos observar un diagrama de correlación.
+Este correlograma a través de diferentes intensidades de del color rojo y azul, ilustra el valor los coeficientes de correlación.</p>
+```{r}
+corrplot(matrizr,method = "color",type=c("full"))
+```
+<p> Podemos observar que aquellas variables representadas con color azul oscuro presentan fuertes asociaciones positivas, y aquellas con un rojo oscuro negativas, a su vez, a mendida que disminuye la intensidad del color,disminuye la fuerza de correlación entre las variables.</p>
+<p>Por ejemplo, la asociación entre la variable EPV ("Esperanza de Vida al Nacer") y CDH ("Coeficiente de Desigualdad Humana") es elevada y negativa, es decir, que a mayor esperanza de vida menor es el coefienciente de desigualdad, y viceversa, a mayor desigualdad, menor esperanza de vida.</p>
+<p>Otro ejemplo muy ilustrativo es la relación entre CO2C ("Emisiones de Dióxido de Carbono Per Cápita") y PBIC ("Producto Bruto Interno Per Cápita"), que como podemos observar están relacionadas de forma positiva, es decir, a mayor Producto Bruto Interno mayores son las emisiones de Dióxido de Carbono, en términos per cápita.
+Por otor lado, las variables CAP ("Formación Bruta de Capital"), DES ("Tasa de Desempleo Total") y POB ("Población Total") muestran bajos niveles de correlación.</p>
+# Análisis de Componenetes Principales
+<p>El análisis de componentes principales (ACP) es un método algebraico/estadístico que busca simplificar, reducir y estructurar la información contenida en una matriz de datos (Colina & Roldán, 1991).</p>
+<p>La principal fortaleza de este método es resumir una serie de indicadores individuales preservando la máxima proporción posible de la variación de la información original (OECD, 2008).
+Esta técnica es considerada de análisis multivariable, ya que estudia y permite interpretar el efecto simultáneo de múltiples variables de cada unidad de observación.</p>
+<p>A través de la trasformación de variables correlacionadas en un nuevo conjunto de variables independientes, llamadas componentes principales (Jolliffe, 2002), este método reduce la dimensionalidad permitiendo interpretar de forma más sencilla y GGG una amplia cantidad de información.</p>
+<p>Los objetivos del ACP se pueden resumir en dos, por un lado, 'comparar los individuos con la información disponible para evaluar semejanza a través de los caracteres considerados buscando grupos de individuos que presenten valores semejantes para hallar tipologías de individuos', y por otro, 'Evaluar relación existente entre las variables buscando grupos de variables correlacionadas para hallar tipologías de variables' (Baronio & Vianco, Análisis Exploratorio: ACP Intepretación de Resultados, 2014).</p>
+### Método KMO
+<p>Para determinar si nuestros datos pueden analizarse a través del método de Análisis de Componentes Principales, realizaremos el test KMO (Kaiser, Meyer y Olkin) que relaciona los coeficientes de correlación.</p>
+<p>Cuanto más cercano a 1 es el valor obtenido de KMO, <em>la relación entre las variables será más elevada</em>.
+La justificación de realizar el test se observa a continuación,</p>
+<ul>
+<li>$KMO ≥ 0.9$, el test es muy bueno</li>
+<li>$KMO ≥ 0.8$, el test es notable</li>
+<li>$KMO ≥ 0.7$, el test es mediano</li>
+<li>$KMO ≥ 0.6$, el test es bajo</li>
+<li>$KMO < 0.5$, el test es muy bajo</li>
+</ul>
+<p>El modelo será significativo cuando se puede aplicar el análisis factorial, aceptamos la hipótesis nula, H0.</p>
+```{r}
+KMO(datos)
+```
+<p>El valor de MSA = 0.85 , por lo cual nuestro resultado no sólo es mayor a 0,5 sino que es notable y nos ordena realizar el análisis de componentes principales.</p>
+<p><b>CONSULTAR SOBRE DES Y POB CON VALORES MENORES A 0,5</b></p>
+### Análisis de la Varianza
+<p>Para determinar si realizaremos el Análisis de Componentes Principales con variables estandarizadas comparamos la varianza de cada una de ellas.</p>
+<p>Como podemos observar las varianzas de las 15 variables tienen magnitudes muy distantes, lo que nos puede guiar a obtener resultados sesgados. Por ello, estandarizaremos los valores, centrando (restando la media) y escalando (diviendo por la desviación estandar) cada una de las variables para reeducir la variabilidad mencionada.</p>
+```{r}
+round(apply(datos,2,var),2)
+```
+### Cálculo de los Componentes
+<p>Aplicamos el ACP a los datos normalizados.
+La función summary es un resumen del análisis destacando la importancia de cada componente en el conjunto de datos, mediante el porcentaje de variabilidad que captura.</p>
+```{r}
+acp<-prcomp(datos,center=TRUE,scale=TRUE)
+summary (acp)
+```
+###Selección de Componentes Significativos
+<p>El gráfico de sedimentación representa graficamente el tamaño de los autovalores, a mayor inclinación mayor es la variabilidad explicada por los componentes, como podemos el punto de inflexiónen en el cual los componentes comienzan a formar una planicie, es en el componenente 3 como podemos observar a continuación.</p>
+```{r}
+scree(datos,main ="Grafico_de_Sedimentacion")
+```
+<p>Finalmente, seleccionaremos los tres primeros componentes, los cuales tienen una variabilidad de 50%, 10%, y 7% respectivamente. Acumulando estas varianzas explicamos aproximadamente el 68% de la varibalidad.</p>
+<p>En el siguiente gráfico de barras se observa la importancia de cada componente.
+Las alturas son las varianzas de las correspondientes componentes.</p>
+```{r}
+plot(acp)
+```
+<p>En el siguiente diagrama podemos observar el la ubicación en de las dos primeras compoenentes de las variables (rojo) y de las unidades de observación (azul).</p>
+```{r}
+biplot(acp,scale=0,cex=0.6,col=c("blue4","brown3"))
+```
+<p>Obtenemos la matriz de rotación que muestra los coeficientes de combinaciones lineales que proporcionan los componentes, llamados vectores propios.</p>
+```{r}
+round(acp$rot[,1:3],2)
+```
+### Interpretación de los Componentes
+<p>A continuación describiremos analizando la anterior matriz las características de cada componente:</p>
+<ul>
+<li><p>Primer componente: tiene asociaciones altas en el semieje negativo con las variables el Ingreso Nacional Bruto y Producto Bruto Interno Per Cápita, las correspondientes a las dimensiones de Salud, Educación, Medioambiente, y la Profundidad del Déficit de Alimentos; y en el semieje positivo las variables de desigualdad.</p>
+<p>Esta componenete opondrá a los países con alto nivel de ingreso nacional bruto y producto bruto interno per cápita, elevada esperanza de vida, cantidad de años de educación y, niveles de emosiones de CO2 per cápita y un alto porcentaje del requerimiento promedio de energía dietética que se necesitaría para garantizar que se elimine el hambre; con los países con un elevado coeficiente de desiguladad humana, que dimensiona a la desigualdad económica, educacional y en salud, e índice de desigualadad de género.</p>
+<p><em>Comp1=-0,34(INB)-0,33(PBIC)-0,33(EVN)-0,33(AEE)-0,33(AME)-0,29(CO2C)-0,25(PDA)+...+0,34(CDH)+0,34(IDG)</em></p></li>
+</ul>
+<ul>
+<li><p>Segundo componente: tiene asociaciones altas en el semieje negativo con las variables Tasa de Desempleo Total, Gasto de Consumo Final del Gobierno General y Coeficiente de GINI; y en el semieje positivo las variables Formación Bruta de Capital y Población Total.</p>
+<p>Esta componenete opondrá a los países con elevado desempleo, gasto corriente público en bienes y servicios y un coeficiente de GINI elevado, lo cual expresa que la distribución del ingreso entre individuos u hogares en el país es más cercana a la desigualdad absoluta que a la equidad; con los países con elevada inversión interna bruta y población.</p>
+<p><em>Comp2=-0,58(DES)-0,40(GCF)-0,25(GINI)+...+0,52(CAP)+0,37(POB)</em></p></li>
+</ul>
+<ul>
+<li><p>Tercer componente: tiene asociaciones altas en el semieje negativo con las variables Índice de Precios al Consumidor, Tasa de Desempleo Total y Profundidad del Déficit de Alimentos; y en el semieje positivo la variable Gasto de Consumo Final del Gobierno General.</p>
+<p>Esta componenete opondrá a los países con prinipalemnte prominente inflación medida a través del índice de precios al consumidor, y con menor peso en su elevada tasa de desempleo y profundidad del déficit de alimentos; con los países con elevado gasto corriente público en bienes y servicios.</p>
+<p><em>Comp3=-0,83(IPC)-0,31(DES)-0,24(PDA)+...+0,31(GCF)</em></p></li>
+</ul>
+<p>Podemos determinar la ubicación de cada país en los componentes analizados y describir así las características de cada uno, sólo analizando 3 variables independientes.</p>
+```{r}
+componentes<-round(acp$x[,1:3],2)
+head(componentes,117)
+```
+<p>Realizaremos el análisis de 2 países:</p>
+#### Argentina
+```{r}
+Argentina<-head(componentes[4,])
+Argentina
+```
+<p>Este país se ubica en el semieje negativo en los primeros tres componenetes y en el positivo en el último, podemos afirmar que presenta:</p>
+<ul>
+<li><p>Elevado nivel de ingreso nacional bruto y producto bruto interno per cápita, elevada esperanza de vida, cantidad de años de educación, niveles de emosiones de CO2 per cápita y un profundo déficit de alimento</p></li>
+<li><p>Elevado desempleo, gasto corriente público en bienes y servicios y un coeficiente de GINI elevado, lo cual expresa que la distribución del ingreso es cercana a la desigualdad absoluta</p></li>
+<li><p>Prominente inflación medida a través del índice de precios al consumidor, elevada tasa de desempleo y profundidad del déficit de alimentos</p></li>
+<p><b>CONSULTAR: COMO EXPLOCAR QUE ESTA CERCA DEL VARICENTRO, COMP4 0,11, COMP 1 ES -0,98</b></p>
+#### Tanzania
+```{r}
+Tanzania<-head(componentes[109,])
+Tanzania
+```
+<p>Este país se ubica en el semieje positivo en los tres componenetes, podemos afirmar que presenta:</p>
+<ul>
+<li><p>Un Elevado coeficiente de desiguladad humana, que dimensiona a la desigualdad económica, educacional y en salud, e índice de desigualadad de género.</p></li>
+<li><p>Elevada inversión interna bruta y población.</p></li>
+<li><p>Elevado gasto corriente público en bienes y servicios, que dado su cercanía al centro de gravedad (0,18), podemos afirmar que es muy cercano al individuo promedio descripto por esta componente.</p></li>
+</ul>
+### Construcción de las Nuevas Variables
+<p> Construimos las nuevas variables creadas, sumando el producto de todas las filas de la primera columna de la matriz de rotación, por los datos originales. </p>
+```{r}
+pc1<-apply(acp$rotation[,1]*datos,1,sum)
+pc2<-apply(acp$rotation[,2]*datos,1,sum)
+pc3<-apply(acp$rotation[,3]*datos,1,sum)
+datos$pc1<-pc1
+datos$pc2<-pc2
+datos$pc3<-pc3
+datos[,1:15]<-NULL
+```
+
+<p>Finalmente obtenemos una nueva tabla de datos que explica el 68% de la información original, y contiene sólo 3 variables independientes, que nos permiten caracterizar las 117 unidades de observación.</p>
+```{r}
+round(head(datos,117),2)
+```

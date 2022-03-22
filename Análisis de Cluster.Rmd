@@ -1,0 +1,272 @@
+---
+title: "Untitled"
+author: "Florencia"
+date: "23/11/2021"
+output: html_document
+---
+
+```{r set-options, echo=FALSE, cache=FALSE}
+options(width = 110)
+
+```
+
+```{r include=FALSE}
+install.packages("tidyverse")
+install.packages("cluster")
+install.packages("NbClust")
+install.packages("tidyr")
+install.packages("factoextra")
+install.packages("reshape")
+install.packages("clustertend")
+install.packages("gridExtra")
+```
+
+```{r include=FALSE}
+library("tidyverse")
+library("cluster")
+library("NbClust")
+library("tidyr")
+library("factoextra")
+library("reshape")
+library("clustertend")
+library("gridExtra")
+```
+
+```{r include=FALSE}
+datos=read.csv("../TP final/Trabajo R.csv",header=TRUE,sep=";",dec=",")
+rownames(datos)<-datos$OBS.VAR
+datos$OBS.VAR<-NULL
+```
+
+```{r include=FALSE}
+options(max.print=10000)
+```
+
+```{r include=FALSE}
+datos2=as.data.frame(scale(datos))
+```
+
+# Análisis de Cluster
+
+<p>La finalidad de este análisis es agrupar unidades de observación en un amplio npumero de ellas. A través de las similitudes en los diferentes indicadores individuales, genera nuevos indicadores compuestos para conglomerar individuos (OECD, 2008).</p>
+
+<p>Busca agrupar observaciones minimizando la suma de cuadrados internos del cluster -la varianza interna de cada cluster- y maximizando la dispersión entre grupos.</p>
+
+## Determinación de el Uso de Cluster
+
+### Matriz de Distancia
+
+<p>La similitud o diferencia entre las diferentes observaciones se mide a través de la distancia entre estas, entendiendo mayor cercanía como mayor similitud.</p>
+
+<p>El método utilizado será la distancia euclidea, cuya principal ventaja es dar mayor influencia a aquellas observaciones que se encuentran más distantes.</p>
+
+<p>En el siguiente gráfico se observa en un gradiente de colores, el grado de similitud, distnacia, entre observaciones.</p>
+
+```{r}
+distancia<-get_dist(datos2,method ="euclidean")
+fviz_dist(distancia,gradient=list(low="blue",mid="white",high="red"))
+```
+
+<p>Se pueden observar tendencias entre las unidades de observación, áreas de fuerte similares, identificadas por el color rojas, y áreas desiguales en color azul. Podemos afirmar que nuestros datos pueden clusterizarse.</p>
+
+### Test Estadístico de Hopkins
+
+<p>Otra forma de evaluar la tendencia de agrupamiento de un conjunto de datos, es el test estadístico de Hopking. Este método que prueba la aleatoriedad espacial de los datos, se calcula como "la distancia media del vecino más cercano en el conjunto de datos aleatorios dividida por la suma de la media del vecino más cercano" (cluster-e-book).</p>
+
+<p>La H0 de este estadístico es que "el conjunto de datos está distribuido uniformemente (es decir, no contiene agrupaciones significativas). Buscamos rechazar la esta hipótesis, lo que determina que nuestros datos son agrupables.</p>
+
+```{r}
+hopkins(datos2,n=nrow(datos2)-1)
+```
+
+<p>La H0 se rechaza si el valor del estadístico menor a 0,5. Como podemos observar nuestros datos son aptos para agrupar, ya que el valor H = 0,21, valor cercano a 0. ###Determinación de la Cantidad de Cluster.</p>
+
+<p>El algoritmo que utilizaremos es no supervisado, es decir, no requiere conocer previamento aquellos objetos que se van a segmentar. Por otor lado, requiere de la especificación del usuario de la cantidad de cluster que se utilizarán.</p>
+
+<p>Realizaremos diferentes pruebas para determinar el número óptimo de grupos.</p>
+
+## Determinación del Número de Cluster
+
+### Método de 'La Rodilla'
+
+<p>Este método busca minimizar la variación total dentro de cada conglomerado representada en el gráfico (la suma total del cuadrado dentro del conglomerado). Dicha variación mide que tan compacto es el conglomerado, y nos provee de información para seleecionar la cantidad de cluster de modo que estos sean lo más compactos posibles.</p>
+
+<p>La suma de errores cuadráticos es la suma del error cuadrado para cada punto -el cuadrado de la distancia del punto de su representación, es decir, su centro de clúster previsto- de todos los puntos.</p>
+
+```{r}
+fviz_nbclust(datos2, kmeans, method = "wss")
+```
+
+<p>La varianza disminuye a medida que aumenta el número de Cluster, a partir de la curva (o "codo") los grupos tienen un valor pequeño. Este método nos indica que el número óptimo de cluster 3, ya que es allí donde se ubica dicha curva (rodilla).</p>
+
+### Método de la Silueta
+
+<p>Este método busca determinar cuan bien se encuentra cada individuo dentro de su cluster, un ancho de silueta medio alto indica una buena agrupación.</p>
+
+<p>Seleccionaremos aquél número de conglomerados que maximice la silueta promedio.</p>
+
+```{r}
+fviz_nbclust(datos2, kmeans, method = "silhouette")
+```
+
+<p>Como se observa, la cantidad de conglomerados que nos provee la máxima silueta promedio es 3, y como segundo número 2.</p>
+
+### Método de Estadística de Brecha
+
+<p>Este analálisis compara "la variación intragrupo total para diferente cantidad de cluster con sus valores esperados bajo una distribución de referencia nula de los datos (es decir, una distribución sin agrupamiento obvio)" (CITAR ebook).</p>
+
+<p>El siguiente nos permite observar estadística de brecha y el error estándar. La cantidad de conglomerados que deben seleccionarse será aquel que maximice la estadística de brecha, lo cual signica que la estructura de agrupamiento está muy lejos a partir de la distribución uniforme aleatoria de puntos. (CONSULTAR, ÚLTIMA PARTE)</p>
+
+```{r}
+fviz_nbclust(datos2, kmeans, method = "gap_stat")
+```
+
+<p>Podemos observar que la cantidad de cluster que maximiza la brecha es igual a 2.</p>
+
+### Paquete de Pruebas Estadísticas de R
+
+<p>Luego de realizar tres pruebas y no obtener resultados definitorios, realizaremos un paquete de 30 pruebas que provee RStudio para determinar cuál es número óptimo de cluster que debemos elegir.</p>
+
+```{r}
+resnumclust<-NbClust(datos2, distance = "euclidean", min.nc=2, max.nc=10, method = "kmeans", index = "alllong")
+fviz_nbclust(resnumclust)
+```
+
+<p>La mayoría de las pruebas nos recomiendan escoger 2 o 4 clusters.</p>
+
+### Representación Gráfica
+
+<p>Podemos observar a través de los siguientes gráficos el resultado de seleccionar diferente elección.</p>
+
+```{r}
+cluster2<-kmeans(datos2,centers=2,nstart = 25)
+cluster4<-kmeans(datos2,centers=4,nstart = 25)
+c2 <- fviz_cluster(cluster2, geom = "point", data = datos2) + ggtitle("c = 2")
+c4 <- fviz_cluster(cluster4, geom = "point",  data = datos2) + ggtitle("c = 4")
+grid.arrange(c2, c4, nrow = 2)
+```
+
+## Método K-means y Comparación de la Reducción de la Suma de Cuadrados
+
+<p>El cálculo de Cluster puede realizarse a través de dos tipos de algoritmos, jerárquicos y no jerárquicos o basados en particiones. Utilizaremos K-means , un método interativo perteneciente al segundo grupo que "se basa en formar clusters de forma que la varianza interna de cada uno sea mínima" (CITAR análisis comparativo).</p>
+
+<p>Este método asigna las N observaciones a los K clusters de modo que dentro de cada uno de ellos el promedio de las diferencias de cada individuo a la media del cluster, definido por los puntos del cluster, sea mínima. (CITAR YANINA)</p>
+
+<p>Este algoritmo sigue la siguiente secuencia:</p>
+
+1.  Parte de un número de cluster que debe especificarse
+
+2.  Coloca las observaciones en cada uno de ellos
+
+3.  Calcula los centroides de cada uno
+
+4.  Reasigna cada observación al centroide más cecano
+
+5.  Repite el paso 3
+
+6.  Repite el paso 4 y 5 hasta que no sea posible mejorar los resultados, en el momento en que no haya más cambios de la ubicación de las observaciones entre los diferentes grupos para dos repeticiones sucesivas
+
+    (CITAR [\<https://www.analyticsvidhya.com/blog/2016/11/an-introduction-to-clustering-and-different-methods-of-clustering/>](https://www.analyticsvidhya.com/blog/2016/11/an-introduction-to-clustering-and-different-methods-of-clustering/){.uri})
+
+```{r}
+cluster2<-kmeans(datos2,centers=2,nstart = 25)
+cluster2
+```
+
+```{r}
+cluster4<-kmeans(datos2,centers=4,nstart = 25)
+cluster4
+```
+
+<p>Como se mencionó anteriormente el criterio de k-means es minimizar la dispersión dentro del grupo y maximizar la dispersión entre grupos. Este resultado se puede observar en el valor de (between_SS/total_SS), que mide la varianza total del conjunto de datos que se explica por la aglomeración.</p>
+
+<p>Al seleccionar 2 grupos la suma de cuadrados, es decir, la varianza explicada, se reduce en un 36,8% y al seleccionar 4 en un 53,6%.</p>
+
+<p>Finalmente, determinamos que la cantidad de cluster a analizar será de 4.</p>
+
+## Composición de Clusters
+
+<p>Para analizar la composición de cada conglomerado analizaremos las variables más predominantes y valores de su media para cada uno de ellos</p>
+
+```{r}
+ClusterMedia<-aggregate(datos,by=list(CLUSTER=cluster4$cluster),mean)
+```
+
+```{r}
+Cluster<-cluster4$cluster
+datos3<-datos
+datos3$Clusters<-Cluster
+```
+
+Media de cada cluster datos no estandarizados comparar con la media global
+
+Datos de el peso de cada variable en cada cluster
+
+
+
+```{r}
+Cluster[Cluster==1]
+```
+
+```{r}
+cluster4$centers[1,]
+```
+
+
+
+### Cluster 2
+
+```{r}
+ClusterMediaScale[2,]
+```
+
+```{r}
+ClusterMedia[2,]
+```
+
+```{r}
+Cluster[Cluster==2]
+```
+
+### Cluster 3
+
+```{r}
+ClusterMediaScale[3,]
+```
+
+```{r}
+ClusterMedia[3,]
+```
+
+```{r}
+Cluster[Cluster==3]
+```
+
+### Cluster 4
+
+```{r}
+ClusterMediaScale[4,]
+```
+
+```{r}
+ClusterMedia[4,]
+```
+
+```{r}
+Cluster[Cluster==4]
+```
+
+El cluster 3 y 4 tiene esperanza de vida, AEE y AME mucho menor que el cluster 2. Por otro lado, el CAP es elevado en el cluster 4. DEsempleo esta muy presente en el 1
+
+Centros geométricos. Para representar el cluster utilizamos gráficos.
+
+```{r}
+fviz_cluster(cluster4,data=datos2,elipse.type="euclid",repel=TRUE,star.plot=TRUE,palette="Set2",ggtheme=theme_minimal())
+```
+
+Utiliza las dos componentes principales que más representatividad tienen en los datos y con ellas realiza el gráfico. La prima componeente recoge el 50,1% y la segunda 10,2%. Si se coinciden los cluster, es porque pueden diferenciarse en otras dimensiones, pero al graficar en dos no se ven estas diferencias.
+
+```{r include=FALSE}
+dend<-hcut(datos2, k=4,stand=TRUE)
+fviz_dend(dend,rect=TRUE,cex=0,5,palette="Set2",ggtheme=theme_minimal())
+```
